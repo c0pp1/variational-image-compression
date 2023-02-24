@@ -14,4 +14,4 @@ The project is being developed by
 
 - [Pietro Cappelli](https://github.com/PietroCappelli), M.Sc. Physics of Data, University of Padova
 - [Alberto Coppi](https://github.com/c0pp1), M.Sc. Physics of Data, University of Padova
-- [Lai Nicolò](https://github.com/niklai99), M.Sc. Physics of Data, University of Padova
+- [Nicolò Lai](https://github.com/niklai99), M.Sc. Physics of Data, University of Padova
