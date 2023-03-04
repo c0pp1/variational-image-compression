@@ -3,6 +3,11 @@ stl10/
 .DS_Store
 .ipynb_checkpoints/
 .vscode/
+vae_image_compression/
+vae_image_compression*
+checkpoint
+*data*
+error.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
