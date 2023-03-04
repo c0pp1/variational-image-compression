@@ -71,7 +71,7 @@ class Decoder(tf.keras.layers.Layer):
 class BalleFFP(tf.keras.Model):
     """Encoder network for the VAE."""
     
-    def __init__(self, N, M, k1, k2, c, format):
+    def __init__(self, N, M, k2, c, format):
         """Initializes the encoder."""
         
         super(BalleFFP, self).__init__()
@@ -81,7 +81,7 @@ class BalleFFP(tf.keras.Model):
         self.decoder = Decoder(N, k2, c, format)
 
 
-    def call(self, inputs, training = True):
+    def call(self, inputs, training=True):
 
         y = self.encoder(inputs)
         y_tilde, rate_b = self.bemodel(y, training=training)

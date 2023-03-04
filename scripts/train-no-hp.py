@@ -43,12 +43,12 @@ def main():
     print('Reading data...')
     ch_format = 'channels_first'
     data      = read_data(ch_format)
+    data      = data.astype('float32') # / 255.0
     print('Data shape: {}'.format(data.shape))
     
-    
-    #data = data.astype('float32') / 255.0
     train_images, test_images = split_train_test(data)
     del data
+    print('Train images shape: {}'.format(train_images.shape))
 
     buffer_size       = len(train_images) # buffer size for shuffling
     global_batch_size = constants.BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync # global batch size (in our case 2gpu * BATCH_SIZE_PER_REPLICA)
@@ -62,8 +62,10 @@ def main():
 
     del train_dataset, test_dataset
     
+    
     with strategy.scope():
-        vae       = BalleFFP(N=128, M=192, k1=3, k2=3, c=3, format=ch_format)
+        
+        vae       = BalleFFP(N=128, M=192, k2=3, c=3, format=ch_format)
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
         
         @tf.function
@@ -72,31 +74,27 @@ def main():
 
         @tf.function # compile the function to a graph for faster execution
         def train_step(inputs, vae):
-            """Train step function."""
-            
             with tf.GradientTape() as tape: # create a tape to record operations
                 reconstructed, rateb = vae(inputs) # forward pass
-                loss  = Loss(inputs, (reconstructed, rateb)) # MSE loss (maybe put this in a function)
-                
+                loss = Loss(inputs, (reconstructed, rateb)) # MSE loss (maybe put this in a function)
             gradients = tape.gradient(loss, vae.trainable_variables) # compute gradients    
             optimizer.apply_gradients(zip(gradients, vae.trainable_variables)) # gradient descent
             return loss # return loss for logging
-        
-        @tf.function
-        def train_step_dist(inputs, vae, strategy):
-            loss = strategy.run(train_step, args=(inputs, vae))
-            return strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
         
         @tf.function
         def val_step(inputs, vae):
             outputs = vae(inputs, training=False) # forward pass
             loss    = Loss(inputs, outputs)       
             return loss 
-    
-        @tf.function
-        def val_step_dist(inputs, vae, strategy):
-            loss = strategy.run(val_step, args=(inputs, vae))
-            return strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
+
+
+    def train_step_dist(inputs, vae, strategy):
+        loss = strategy.run(train_step, args=(inputs, vae))
+        return strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
+
+    def val_step_dist(inputs, vae, strategy):
+        loss = strategy.run(val_step, args=(inputs, vae))
+        return strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
         
     
     training_losses = []
@@ -128,6 +126,7 @@ def main():
         print('Epoch {} test loss: {}'.format(epoch, test_loss))
         
     print('Training finished!')
+    
     print('Saving model and losses...')
     current_time = time()
     
@@ -139,7 +138,7 @@ def main():
     # save losses in .h5 file
     losses_name = f"losses_{current_time}.h5"
     losses_path = constants.MODEL_FOLDER + losses_name
-    with h5py.File(losses_path, 'w') as f:
+    with h5py.File(losses_path, 'w') as f: # type: ignore
         f.create_dataset('train', data=training_losses)
         f.create_dataset('test', data=test_losses)
 
