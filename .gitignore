@@ -6,7 +6,7 @@ stl10/
 vae_image_compression/
 vae_image_compression*
 checkpoint
-*data*
+*data.npy
 error.txt
 
 # Byte-compiled / optimized / DLL files
