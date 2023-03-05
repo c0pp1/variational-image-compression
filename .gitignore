@@ -8,6 +8,7 @@ vae_image_compression*
 checkpoint
 *data.npy
 error.txt
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
