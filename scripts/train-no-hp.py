@@ -3,15 +3,15 @@ import tensorflow as tf
 import tensorflow_compression as tfc
 import tensorflow_probability as tfp
 
-from time import time
+from datetime import datetime
 from tqdm import tqdm
 
 import os
 import h5py
+import argparse
 
 from BalleFFP import BalleFFP
 from read_data import read_data_numpy
-
 import constants
 
 
@@ -33,17 +33,33 @@ def split_train_test(data: np.ndarray):
     return train_images, test_images
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    # norm arguments: if true the data is normalized to [0,1] (default: True)
+    parser.add_argument('--norm', type=bool, default=True)
+    return parser.parse_args()
+
 
 def main():
+    
+    args = parse_args()
+    norm = args.norm
     
     strategy  = gpu_settings()
    
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
     
     print('Reading data...')
+    
     ch_format = 'channels_first'
     data      = read_data(ch_format)
-    data      = data.astype('float32') # / 255.0
+    if norm:
+        print('Normalizing data to [0,1]...')
+        data  = data.astype('float32') / 255.0
+    else:
+        print('Data is not normalized to [0,1]...')
+        data  = data.astype('float32')
+        
     print('Data shape: {}'.format(data.shape))
     
     train_images, test_images = split_train_test(data)
@@ -128,7 +144,7 @@ def main():
     print('Training finished!')
     
     print('Saving model and losses...')
-    current_time = time()
+    current_time = datetime.now().strftime("%Y%m%d%H%M%S")
     
     # save model
     model_name = f"model_{current_time}.h5"
