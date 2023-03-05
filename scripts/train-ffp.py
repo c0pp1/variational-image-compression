@@ -1,3 +1,4 @@
+from ast import parse
 import numpy as np
 import tensorflow as tf
 import tensorflow_compression as tfc
@@ -35,15 +36,23 @@ def split_train_test(data: np.ndarray):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    # norm arguments: if true the data is normalized to [0,1] (default: True)
-    parser.add_argument('--norm', type=bool, default=True)
+    # norm arguments: if true the data is normalized to [0,1] (default: False)
+    parser.add_argument('--norm', type=int, default=0)
+    # epochs
+    parser.add_argument('--epochs', type=int, default=constants.EPOCHS)
     return parser.parse_args()
 
 
 def main():
     
-    args = parse_args()
-    norm = args.norm
+    args   = parse_args()
+    norm   = args.norm
+    epochs = args.epochs
+    
+    if norm==1:
+        norm_str = "normTrue"
+    else:
+        norm_str = "normFalse"
     
     strategy  = gpu_settings()
    
@@ -51,12 +60,12 @@ def main():
     
     print('Reading data...')
     
-    ch_format = 'channels_first'
+    ch_format = 'channels_last' # channels_last !!!!
     data      = read_data(ch_format)
-    if norm:
+    if norm==1:
         print('Normalizing data to [0,1]...')
         data  = data.astype('float32') / 255.0
-    else:
+    elif norm==0:
         print('Data is not normalized to [0,1]...')
         data  = data.astype('float32')
         
@@ -118,7 +127,7 @@ def main():
     
     print('Training started...')
     
-    for epoch in range(constants.EPOCHS):
+    for epoch in range(epochs):
         total_loss  = 0.0 
         num_batches = 0 
         for inputs in tqdm(train_dataset_dist, 'training steps'): 
@@ -147,12 +156,12 @@ def main():
     current_time = datetime.now().strftime("%Y%m%d%H%M%S")
     
     # save model
-    model_name = f"model_{current_time}.h5"
+    model_name = f"model_ffp_{ch_format}_epochs{epochs}_{norm_str}_{current_time}.h5"
     model_path = constants.MODEL_FOLDER + model_name
     vae.save_weights(model_path)
     
     # save losses in .h5 file
-    losses_name = f"losses_{current_time}.h5"
+    losses_name = f"losses_ffp_{ch_format}_epochs{epochs}_{norm_str}_{current_time}.h5"
     losses_path = constants.MODEL_FOLDER + losses_name
     with h5py.File(losses_path, 'w') as f: # type: ignore
         f.create_dataset('train', data=training_losses)
