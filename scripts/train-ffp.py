@@ -48,6 +48,11 @@ def main():
     args   = parse_args()
     norm   = args.norm
     epochs = args.epochs
+    ch_format = 'channels_last' # channels_last !!!!
+    
+    print('Training FFP with {} epochs'.format(epochs))
+    print('Normalization: {}'.format(norm))
+    print('Data format: {}'.format(ch_format))
     
     if norm==1:
         norm_str = "normTrue"
@@ -60,7 +65,6 @@ def main():
     
     print('Reading data...')
     
-    ch_format = 'channels_last' # channels_last !!!!
     data      = read_data(ch_format)
     if norm==1:
         print('Normalizing data to [0,1]...')

@@ -122,15 +122,17 @@ def main():
         return strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
         
     
-    training_losses = []
-    test_losses     = []
+    training_losses   = []
+    test_losses       = []
+    total_train_steps = constants.TRAINING_SET_SIZE // global_batch_size
+    total_val_steps   = constants.VALIDATION_SET_SIZE // global_batch_size
     
     print('Training started...')
     
     for epoch in range(epochs):
         total_loss  = 0.0 
         num_batches = 0 
-        for inputs in tqdm(train_dataset_dist, 'training steps'): 
+        for inputs in tqdm(train_dataset_dist, 'training steps', total=total_train_steps): 
             total_loss  += train_step_dist(inputs, vae, strategy) # type: ignore # sum losses across replicas (replicas are the gpus
             num_batches += 1 # count number of batches
             
@@ -141,7 +143,7 @@ def main():
 
         total_loss  = 0.0
         num_batches = 0
-        for inputs in tqdm(test_dataset_dist, 'validation steps'): 
+        for inputs in tqdm(test_dataset_dist, 'validation steps', total=total_val_steps): 
             total_loss  += val_step_dist(inputs, vae, strategy) # type: ignore # sum losses across replicas
             num_batches += 1 # count number of batches
             
