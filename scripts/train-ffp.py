@@ -10,8 +10,9 @@ from tqdm import tqdm
 import os
 import h5py
 import argparse
+import math
 
-from BalleFFP import BalleFFP
+from BalleFFP_improved import BalleFFP
 from read_data import read_data_numpy
 import constants
 
@@ -40,6 +41,8 @@ def parse_args():
     parser.add_argument('--norm', type=int, default=0)
     # epochs
     parser.add_argument('--epochs', type=int, default=constants.EPOCHS)
+    # regularization
+    parser.add_argument('--lreg', type=float, default=0.5)
     return parser.parse_args()
 
 
@@ -48,11 +51,10 @@ def main():
     args   = parse_args()
     norm   = args.norm
     epochs = args.epochs
+    lreg   = args.lreg
     ch_format = 'channels_last' # channels_last !!!!
     
-    print('Training FFP with {} epochs'.format(epochs))
-    print('Normalization: {}'.format(norm))
-    print('Data format: {}'.format(ch_format))
+
     
     if norm==1:
         norm_str = "normTrue"
@@ -62,6 +64,11 @@ def main():
     strategy  = gpu_settings()
    
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    
+    print('Training FFP with {} epochs'.format(epochs))
+    print('Normalization: {}'.format(norm))
+    print('Regularization: {}'.format(lreg))
+    print('Data format: {}'.format(ch_format))
     
     print('Reading data...')
     
@@ -99,7 +106,7 @@ def main():
         
         @tf.function
         def Loss(inputs, outputs):
-            return tf.reduce_mean(tf.square(inputs - outputs[0])) + 0.5*(tf.reduce_mean(outputs[1]))
+            return tf.reduce_mean(tf.square(inputs - outputs[0])) + lreg*(tf.reduce_mean(outputs[1]))
 
         @tf.function # compile the function to a graph for faster execution
         def train_step(inputs, vae):
@@ -126,15 +133,17 @@ def main():
         return strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
         
     
-    training_losses = []
-    test_losses     = []
+    training_losses   = []
+    test_losses       = []
+    total_train_steps = math.ceil(constants.TRAINING_SET_SIZE / global_batch_size)
+    total_val_steps   = math.ceil(constants.VALIDATION_SET_SIZE / global_batch_size)
     
     print('Training started...')
     
     for epoch in range(epochs):
         total_loss  = 0.0 
         num_batches = 0 
-        for inputs in tqdm(train_dataset_dist, 'training steps'): 
+        for inputs in tqdm(train_dataset_dist, 'training steps', total=total_train_steps): 
             total_loss  += train_step_dist(inputs, vae, strategy) # type: ignore # sum losses across replicas (replicas are the gpus
             num_batches += 1 # count number of batches
             
@@ -145,7 +154,7 @@ def main():
 
         total_loss  = 0.0
         num_batches = 0
-        for inputs in tqdm(test_dataset_dist, 'validation steps'): 
+        for inputs in tqdm(test_dataset_dist, 'validation steps', total=total_val_steps): 
             total_loss  += val_step_dist(inputs, vae, strategy) # type: ignore # sum losses across replicas
             num_batches += 1 # count number of batches
             
@@ -160,16 +169,16 @@ def main():
     current_time = datetime.now().strftime("%Y%m%d%H%M%S")
     
     # save model
-    model_name = f"model_ffp_{ch_format}_epochs{epochs}_{norm_str}_{current_time}.h5"
+    model_name = f"model_ffp_{ch_format}_epochs{epochs}_{norm_str}_l{lreg}_{current_time}.h5"
     model_path = constants.MODEL_FOLDER + model_name
     vae.save_weights(model_path)
     
     # save losses in .h5 file
-    losses_name = f"losses_ffp_{ch_format}_epochs{epochs}_{norm_str}_{current_time}.h5"
+    losses_name = f"losses_ffp_{ch_format}_epochs{epochs}_{norm_str}_l{lreg}_{current_time}.h5"
     losses_path = constants.MODEL_FOLDER + losses_name
     with h5py.File(losses_path, 'w') as f: # type: ignore
         f.create_dataset('train', data=training_losses)
-        f.create_dataset('test', data=test_losses)
+        f.create_dataset('test',  data=test_losses)
 
 
 

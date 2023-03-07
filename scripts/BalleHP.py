@@ -105,7 +105,7 @@ class H_s(tf.keras.layers.Layer):
     
 
 def indexes(i):
-    return i+1e-2
+    return i
 
 def get_indexed_emodel(num_scales):
     return tfc.LocationScaleIndexedEntropyModel(

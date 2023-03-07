@@ -2,17 +2,6 @@ import tensorflow as tf
 import tensorflow_compression as tfc
 
 
-# def prior(): #for the compressed images
-#     return tfc.NoisyNormal()
-
-def get_batched_emodel(batch_shape=()):
-    return tfc.ContinuousBatchedEntropyModel(
-        prior=tfc.distributions.NoisyDeepFactorized(batch_shape=batch_shape),
-        coding_rank=1
-    )
-
-
-
 class Encoder(tf.keras.layers.Layer):
     """Encoder network for the VAE."""
     
@@ -24,7 +13,7 @@ class Encoder(tf.keras.layers.Layer):
         self.M      = M
         self.conv1  = tf.keras.layers.Conv2D(self.N, k, strides=2, padding='same', data_format=format)
         self.conv2  = tf.keras.layers.Conv2D(self.N, k, strides=2, data_format=format)
-        self.conv3  = tf.keras.layers.Conv2D(self.N, k, strides=1, data_format=format)
+        self.conv3  = tf.keras.layers.Conv2D(self.N, k, strides=2, data_format=format)
         self.conv4  = tf.keras.layers.Conv2D(self.M, k, strides=1, data_format=format)
         self.gdn1   = tfc.layers.GDN(data_format=format)
         self.gdn2   = tfc.layers.GDN(data_format=format)
@@ -51,10 +40,10 @@ class Decoder(tf.keras.layers.Layer):
         
         super(Decoder, self).__init__()
         self.N      = N
-        self.conv2  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=1, data_format=format)
         self.conv1  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=1, data_format=format)
-        self.conv3  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=2, data_format=format, output_padding=(1, 1))
-        self.conv4  = tf.keras.layers.Conv2DTranspose(c, k, strides=2, data_format=format, padding='same')
+        self.conv2  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=2, data_format=format)
+        self.conv3  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=2, data_format=format)
+        self.conv4  = tf.keras.layers.Conv2DTranspose(c, k, strides=2, data_format=format, output_padding=(1, 1))
         self.gdn1   = tfc.layers.GDN(inverse=True, data_format=format)
         self.gdn3   = tfc.layers.GDN(inverse=True, data_format=format)
         self.gdn2   = tfc.layers.GDN(inverse=True, data_format=format)
@@ -74,12 +63,16 @@ class Decoder(tf.keras.layers.Layer):
 class BalleFFP(tf.keras.Model):
     """Encoder network for the VAE."""
     
-    def __init__(self, N, M, k2, c, format):
+    def __init__(self, N, M, k2, c, cr,format):
         """Initializes the encoder."""
         
         super(BalleFFP, self).__init__()
 
-        self.bemodel = get_batched_emodel(())
+        self.prior = tfc.distributions.NoisyDeepFactorized()
+        self.bemodel = tfc.ContinuousBatchedEntropyModel(
+                        prior=self.prior,
+                        coding_rank=cr 
+                    )
         self.encoder = Encoder(N, M, k2, format)
         self.decoder = Decoder(N, k2, c, format)
 

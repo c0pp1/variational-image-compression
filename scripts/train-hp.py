@@ -10,6 +10,7 @@ from tqdm import tqdm
 import os
 import h5py
 import argparse
+import math
 
 from BalleHP import BalleHP
 from read_data import read_data_numpy
@@ -40,6 +41,8 @@ def parse_args():
     parser.add_argument('--norm', type=int, default=0)
     # epochs
     parser.add_argument('--epochs', type=int, default=constants.EPOCHS)
+    # regularization
+    parser.add_argument('--lreg', type=float, default=0.1)
     return parser.parse_args()
 
 
@@ -48,7 +51,11 @@ def main():
     args   = parse_args()
     norm   = args.norm
     epochs = args.epochs
-    
+    lreg   = args.lreg
+    ch_format = 'channels_last'
+
+
+
     if norm==1:
         norm_str = "normTrue"
     else:
@@ -57,10 +64,14 @@ def main():
     strategy  = gpu_settings()
    
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-    
+
+    print('Training FFP with {} epochs'.format(epochs))
+    print('Normalization: {}'.format(norm))
+    print('Regularization: {}'.format(lreg))
+    print('Data format: {}'.format(ch_format))
+
     print('Reading data...')
     
-    ch_format = 'channels_last' # channels_last !!!!
     data      = read_data(ch_format)
     if norm==1:
         print('Normalizing data to [0,1]...')
@@ -124,8 +135,8 @@ def main():
     
     training_losses   = []
     test_losses       = []
-    total_train_steps = constants.TRAINING_SET_SIZE // global_batch_size
-    total_val_steps   = constants.VALIDATION_SET_SIZE // global_batch_size
+    total_train_steps = math.ceil(constants.TRAINING_SET_SIZE / global_batch_size)
+    total_val_steps   = math.ceil(constants.VALIDATION_SET_SIZE / global_batch_size)
     
     print('Training started...')
     
