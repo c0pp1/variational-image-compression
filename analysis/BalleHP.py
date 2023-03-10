@@ -5,7 +5,7 @@ import tensorflow_compression as tfc
 class Encoder(tf.keras.layers.Layer):
     """Encoder network for the VAE."""
     
-    def __init__(self, N, M, k, format='channel_last'):
+    def __init__(self, N, M, k, format='channels_last'):
         """Initializes the encoder."""
         
         super(Encoder, self).__init__()
@@ -13,11 +13,11 @@ class Encoder(tf.keras.layers.Layer):
         self.M      = M
         self.conv1  = tf.keras.layers.Conv2D(self.N, k, strides=2, padding='same', data_format=format)
         self.conv2  = tf.keras.layers.Conv2D(self.N, k, strides=2, data_format=format)
-        self.conv3  = tf.keras.layers.Conv2D(self.N, k, strides=1, data_format=format)
+        self.conv3  = tf.keras.layers.Conv2D(self.N, k, strides=2, data_format=format)
         self.conv4  = tf.keras.layers.Conv2D(self.M, k, strides=1, data_format=format)
-        self.gdn1   = tfc.layers.GDN()
-        self.gdn2   = tfc.layers.GDN()
-        self.gdn3   = tfc.layers.GDN()
+        self.gdn1   = tfc.layers.GDN(data_format=format)
+        self.gdn2   = tfc.layers.GDN(data_format=format)
+        self.gdn3   = tfc.layers.GDN(data_format=format)
     
     def call(self, inputs):
         """Forward pass of the encoder."""
@@ -41,12 +41,12 @@ class Decoder(tf.keras.layers.Layer):
         super(Decoder, self).__init__()
         self.N      = N
         self.conv2  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=1, data_format=format)
-        self.conv1  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=1, data_format=format)
+        self.conv1  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=2, data_format=format)
         self.conv3  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=2, data_format=format, output_padding=(1, 1))
         self.conv4  = tf.keras.layers.Conv2DTranspose(c, k, strides=2, data_format=format, padding='same')
-        self.gdn1   = tfc.layers.GDN(inverse=True)
-        self.gdn2   = tfc.layers.GDN(inverse=True)
-        self.gdn3   = tfc.layers.GDN(inverse=True)
+        self.gdn1   = tfc.layers.GDN(inverse=True, data_format=format)
+        self.gdn2   = tfc.layers.GDN(inverse=True, data_format=format)
+        self.gdn3   = tfc.layers.GDN(inverse=True, data_format=format)
     
     def call(self, inputs):
         """Forward pass of the decoder."""
@@ -130,8 +130,24 @@ class BalleHP(tf.keras.Model):
         
         super(BalleHP, self).__init__()
 
-        self.iemodel = get_indexed_emodel(19)
-        self.bemodel = get_batched_emodel(())
+
+        self.prior_indexed   = tfc.distributions.NoisyDeepFactorized()
+        self.prior_batched   =tfc.NoisyNormal(),
+
+        # self.iemodel = get_indexed_emodel(19)
+        self.iemodel = tfc.LocationScaleIndexedEntropyModel(
+            prior_fn   = self.prior_indexed,
+            num_scales = 19,
+            scale_fn   = indexes,
+            coding_rank= 3,
+
+        )
+
+        self.bemodel = tfc.ContinuousBatchedEntropyModel(
+                        prior=self.prior_batched,
+                        coding_rank=3 
+                    )
+        
         self.encoder = Encoder(N, M, k2, format)
         self.decoder = Decoder(N, k2, c, format)
         self.H_a     = H_a(N, k1, k2, format)
@@ -150,4 +166,3 @@ class BalleHP(tf.keras.Model):
         x_tilde = self.decoder(y_tilde)
 
         return x_tilde, rate_i, rate_b
-    

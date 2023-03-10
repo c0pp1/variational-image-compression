@@ -5,7 +5,7 @@ import tensorflow_compression as tfc
 def get_batched_emodel(batch_shape=()):
     return tfc.ContinuousBatchedEntropyModel(
         prior=tfc.distributions.NoisyDeepFactorized(batch_shape=batch_shape),
-        coding_rank=1 
+        coding_rank=1
     )
 
 
@@ -23,9 +23,9 @@ class Encoder(tf.keras.layers.Layer):
         self.conv2  = tf.keras.layers.Conv2D(self.N, k, strides=2, data_format=format)
         self.conv3  = tf.keras.layers.Conv2D(self.N, k, strides=1, data_format=format)
         self.conv4  = tf.keras.layers.Conv2D(self.M, k, strides=1, data_format=format)
-        self.gdn1   = tfc.layers.GDN()
-        self.gdn2   = tfc.layers.GDN()
-        self.gdn3   = tfc.layers.GDN()
+        self.gdn1   = tfc.layers.GDN(data_format=format)
+        self.gdn2   = tfc.layers.GDN(data_format=format)
+        self.gdn3   = tfc.layers.GDN(data_format=format)
     
     def call(self, inputs):
         """Forward pass of the encoder."""
@@ -52,9 +52,9 @@ class Decoder(tf.keras.layers.Layer):
         self.conv1  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=1, data_format=format)
         self.conv3  = tf.keras.layers.Conv2DTranspose(self.N, k, strides=2, data_format=format, output_padding=(1, 1))
         self.conv4  = tf.keras.layers.Conv2DTranspose(c, k, strides=2, data_format=format, padding='same')
-        self.gdn1   = tfc.layers.GDN(inverse=True)
-        self.gdn2   = tfc.layers.GDN(inverse=True)
-        self.gdn3   = tfc.layers.GDN(inverse=True)
+        self.gdn1   = tfc.layers.GDN(inverse=True, data_format=format)
+        self.gdn3   = tfc.layers.GDN(inverse=True, data_format=format)
+        self.gdn2   = tfc.layers.GDN(inverse=True, data_format=format)
     
     def call(self, inputs):
         """Forward pass of the decoder."""
@@ -89,13 +89,3 @@ class BalleFFP(tf.keras.Model):
         x_tilde = self.decoder(y_tilde)
 
         return x_tilde, rate_b
-    
-    
-    def encode(self, inputs):
-        return self.encoder(inputs)
-    
-    
-    def decode(self, inputs):
-        return self.decoder(inputs)
-    
-    

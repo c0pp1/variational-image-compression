@@ -42,7 +42,8 @@ def parse_args():
     # epochs
     parser.add_argument('--epochs', type=int, default=constants.EPOCHS)
     # regularization
-    parser.add_argument('--lreg', nargs='+', type=float, default=[1e-1])
+    parser.add_argument('--lreg1', nargs='+', type=float, default=[1e-1])
+    parser.add_argument('--lreg2', nargs='*', type=float)
     # coding rank
     parser.add_argument('--cr', nargs='+', type=int, default=[3])
     return parser.parse_args()
@@ -58,7 +59,7 @@ def main():
     args      = parse_args()
     norm      = args.norm
     epochs    = args.epochs
-    lreg      = args.lreg
+    lreg      = args.lreg1, args.lreg2
     cod_ranks = args.cr
     ch_format = 'channels_last' # channels_last !!!!
 
@@ -110,8 +111,8 @@ def main():
     FOR LOOP FOR DIFFERENT LAMBDA VALUES
     """
 
-    for cr in cod_ranks:       
-        for l in lreg:
+    for i, cr in enumerate(cod_ranks):       
+        for l in lreg[i]:
             
             print('##########################################')
             print(f'\tCoding rank: {cr}\n\tRegularization: {l}')
@@ -124,7 +125,8 @@ def main():
                 
                 @tf.function
                 def Loss(inputs, outputs):
-                    return tf.reduce_mean(tf.square(inputs - outputs[0])) + l*(tf.reduce_mean(outputs[1]))
+                    return tf.reduce_mean(tf.square(inputs - outputs[0])) + \
+                           l*(tf.reduce_mean(tf.reduce_sum(outputs[1], axis=range(1, len(outputs[1].shape))) if len(outputs[1].shape)>1 else outputs[1]))
 
                 @tf.function # compile the function to a graph for faster execution
                 def train_step(inputs, vae):

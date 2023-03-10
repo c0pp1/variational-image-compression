@@ -63,7 +63,7 @@ class Decoder(tf.keras.layers.Layer):
 class BalleFFP(tf.keras.Model):
     """Encoder network for the VAE."""
     
-    def __init__(self, N, M, k2, c, format):
+    def __init__(self, N, M, k2, c, cr, format):
         """Initializes the encoder."""
         
         super(BalleFFP, self).__init__()
@@ -71,7 +71,7 @@ class BalleFFP(tf.keras.Model):
         self.prior = tfc.distributions.NoisyDeepFactorized()
         self.bemodel = tfc.ContinuousBatchedEntropyModel(
                         prior=self.prior,
-                        coding_rank=1
+                        coding_rank=cr
                     )
         self.encoder = Encoder(N, M, k2, format)
         self.decoder = Decoder(N, k2, c, format)
